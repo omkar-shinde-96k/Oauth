@@ -1,18 +1,19 @@
 const express = require('express');
 const app = express();
 const jwt = require('jsonwebtoken');
-const { User } = require('./models/user')
-require('./database/connection')()
+const { User } = require('./models/user')       // User Model
+require('./database/connection')()              // Database connection
 const passport = require('passport');
+
 const Strategy = require('passport-facebook').Strategy;
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
-app.get('/users', async (req, res) => {  // Get saved user from database
+app.get('/users', async (req, res) => {   // Get saved user from database
     const users = await User.find()
     res.json(users);
 })
 
-
+//  passport js code  
 app.use(require('express-session')({ secret: 'keyboard cat', resave: false, saveUninitialized: false }));
 
 app.use(passport.initialize());
@@ -25,11 +26,6 @@ passport.serializeUser(function (user, cb) {
 passport.deserializeUser(function (obj, cb) {
     cb(null, obj);
 });
-
-app.use('/failed/login', (req, res, next) => {
-    res.send('login failed');
-});
-
 
 let token = ""
 
@@ -63,12 +59,9 @@ app.use('/google', passport.authenticate('google', { failureRedirect: '/failed/l
             email: req.user._json.email,
         }
         token = jwt.sign(payload, "omkarshinde", { expiresIn: "999 days" })
-        console.log(token);
 
-        res.redirect("http://localhost:3000/")
-
+        res.redirect("http://localhost:3000")
     });
-
 
 // ***************************  Google auth End **********************************
 
@@ -78,7 +71,7 @@ app.use('/google', passport.authenticate('google', { failureRedirect: '/failed/l
 passport.use(new Strategy({
     clientID: '675156530560931',
     clientSecret: 'c8bf248e5761320f2933b232331dc7a8',
-    callbackURL: '/fb/auth',
+    callbackURL: 'http://localhost:5000/fb/auth',
     profileFields: ['id', 'displayName', 'email']
 }, async function (accessToken, refreshToken, profile, done) {
 
@@ -101,8 +94,10 @@ app.get('/fb/auth', passport.authenticate('facebook', { failureRedirect: '/faile
         name: req.user.displayName,
         email: req.user._json.email,
     }
+ 
     token = jwt.sign(payload, "omkarshinde", { expiresIn: "999 days" })
-    res.redirect("http://127.0.0.1:3000/");
+
+    res.redirect("http://localhost:3000");
 });
 
 // ***************************  FB auth End *********************************
@@ -114,15 +109,11 @@ app.get("/getLoginUser", (req, res) => {
 
     if (bearerToken !== "null") {
 
-        console.log("back token is ", bearerToken);
-
         if (!bearerToken) {
             return res.status(401).send("login first")
         }
-        let token = bearerToken
-        const loggedInUser = jwt.verify(token, "omkarshinde")
 
-        console.log("", loggedInUser);
+        const loggedInUser = jwt.verify(bearerToken, "omkarshinde")
 
         res.status(200).json({
             success: true,
@@ -148,9 +139,14 @@ app.get("/getLoginUser", (req, res) => {
             });
         }
     }
-
 });
 
+
+app.get('/logout', (req, res) => {
+    req.logout();
+    console.log("is auth", req.isAuthenticated());
+    res.send('user is logged out');
+})
 
 app.listen(5000, () => {
     console.log('server is started');
